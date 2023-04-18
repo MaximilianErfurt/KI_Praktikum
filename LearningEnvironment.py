@@ -15,8 +15,8 @@ from tkinter import filedialog
 # Mode = 0 return as array
 def create_rand_image(mode):
     # image
-    x_size = 1600
-    y_size = 800
+    x_size = 2736
+    y_size = 1824
     array = np.zeros((y_size, x_size), dtype='uint8', )
 
     # generating random points
@@ -38,6 +38,12 @@ def create_rand_image(mode):
     # merge into array
     for i in range(x_size):
         array[int(spline(i) + 175), i] = 255
+
+    # fill up empty space
+    kernel = np.ones((5, 5), np.uint8)
+    array = cv2.dilate(array, kernel, iterations=1)
+    kernel = np.ones((3, 3), np.uint8)
+    array = cv2.erode(array, kernel, iterations=1)
 
     # plot the graph
     cv2.imshow("Canvas", array)
