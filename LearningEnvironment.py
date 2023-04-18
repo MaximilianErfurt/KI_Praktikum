@@ -6,9 +6,14 @@ from PIL import Image
 import scipy
 from datetime import datetime
 import os
+import tkinter
+from tkinter import filedialog
 
-
-def create_rand_image():
+# Method to create images with random splines
+# 2 Modes:
+# Mode = 1 save the image in chosen folder
+# Mode = 0 return as array
+def create_rand_image(mode):
     # image
     x_size = 1600
     y_size = 800
@@ -32,17 +37,22 @@ def create_rand_image():
 
     # merge into array
     for i in range(x_size):
-        array[int(spline(i) + 100), i] = 255
+        array[int(spline(i) + 175), i] = 255
+
     # plot the graph
     cv2.imshow("Canvas", array)
     cv2.waitKey(0)
 
-    # save array as image
-    curr_time = datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
-    name = "D:\Images\Image_" + curr_time + ".png"
-    cv2.imwrite(name, array)  # imwrite(filename, img[, params])
+    # get folder and save
+    if mode == 1:
+        tkinter.Tk().withdraw()  # prevents an empty tkinter window from appearing
+        folder_path = filedialog.askdirectory()  # ask user for folder to save in
 
-    return array
+        # save array as image
+        curr_time = datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
+        name = folder_path + "/Image" + curr_time + ".png"
+        cv2.imwrite(name, array)  # imwrite(filename, img[, params])
 
-
-create_rand_image()
+    # return array
+    if mode == 0:
+        return array
