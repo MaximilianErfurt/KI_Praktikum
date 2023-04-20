@@ -40,9 +40,10 @@ def create_rand_image(mode):
         array[int(spline(i) + 175), i] = 255
 
     # fill up empty space
-    kernel = np.ones((5, 5), np.uint8)
+    kernel = np.ones((7, 7), np.uint8)
     array = cv2.dilate(array, kernel, iterations=1)
     kernel = np.ones((3, 3), np.uint8)
+    array = cv2.erode(array, kernel, iterations=1)
     array = cv2.erode(array, kernel, iterations=1)
 
     # plot the graph
