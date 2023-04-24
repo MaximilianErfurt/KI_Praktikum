@@ -8,6 +8,7 @@ from datetime import datetime
 import os
 import tkinter
 from tkinter import filedialog
+from skimage.morphology import skeletonize
 
 # Method to create images with random splines
 # 2 Modes:
@@ -42,13 +43,12 @@ def create_rand_image(mode):
     # fill up empty space
     kernel = np.ones((7, 7), np.uint8)
     array = cv2.dilate(array, kernel, iterations=1)
-    kernel = np.ones((3, 3), np.uint8)
-    array = cv2.erode(array, kernel, iterations=1)
-    array = cv2.erode(array, kernel, iterations=1)
+    array = skeletonize(array)*255
+
 
     # plot the graph
-    cv2.imshow("Canvas", array)
-    cv2.waitKey(0)
+   # cv2.imshow("Canvas", array)
+    # cv2.waitKey(0)
 
     # get folder and save
     if mode == 1:
