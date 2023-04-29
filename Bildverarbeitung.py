@@ -9,10 +9,10 @@ from sklearn.metrics import r2_score
 
 def reduce_Draht_to_Line(draht):
 
-    # original image to grey image
+    # original global_environment to grey global_environment
     img_gray = cv2.cvtColor(draht, cv2.COLOR_BGR2GRAY)
 
-    # blur image for better edge detection with median blur
+    # blur global_environment for better edge detection with median blur
     img_blur = cv2.medianBlur(img_gray, 15)
 
     # Canny edge detection
