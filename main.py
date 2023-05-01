@@ -5,9 +5,10 @@ import Bildverarbeitung as Bv
 
 generated_spline = Le.create_rand_image(0)
 path = Le.extract_path(generated_spline)
+print(Le.extract_path.__doc__)
 
 # create test Object from State class
-test_state = Le.State(generated_spline, path, path[0], 0, 1)
+test_state = Le.State(generated_spline, path, path[0], 7, 1)
 print(test_state)
 
 # img = cv2.imread('Draht.jpeg')

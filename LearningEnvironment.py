@@ -1,40 +1,67 @@
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt
 import scipy
 from datetime import datetime
 import tkinter
 from tkinter import filedialog
 from skimage.morphology import skeletonize
 
-###### Why are these imports here? Do we need them or can they go
+# TODO Why are these imports here? Do we need them or can they go
 # import matplotlib.pyplot as plot
 # from PIL import Image
 # import os
 
-# Method to create images with random splines
-# 2 Modes:
-# Mode = 1 save the global_environment in chosen folder
-# Mode = 0 return as array
+
+# setting reward values
+good_rotation_reward = 50
+bad_rotation_reward = -50
+neutral_rotation_reward = 0
+local_goal_reached_with_center_reward = 150
+local_goal_reached_reward = 75
+local_goal_not_reached_reward = -25
+out_of_bounds_reward = -100
+
+collision_reward = -1000
+
+# indexing parameters to check various things relating to state class and rewards
+# goal reached indices
+# they repeat for orientations 4 - 7
+# orientation:                0 & 4             1 & 5             2 & 6                 3 & 7
+goal_reached_indices = (((1, 2), (3, 2)), ((1, 3), (3, 1)), ((2, 1), (2, 3)), ((1, 1), (3, 3)))
+
+# rotation collision detection indices
+# cw rotations top, ccw rotations bot.:      0 & 4             1 & 5             2 & 6             3 & 7
+rotation_collision_detected_indices = (((0, 1), (4, 3)), ((0, 3), (4, 1)), ((3, 0), (1, 4)), ((1, 0), (3, 4)),
+                                       ((0, 3), (4, 1)), ((1, 4), (3, 0)), ((1, 0), (3, 4)), ((0, 1), (4, 3)))
+
+# indices for contact positions:     0 & 4             1 & 5             2 & 6             3 & 7
+contact_orientation_indices = (((0, 2), (4, 2)), ((0, 4), (4, 0)), ((2, 4), (2, 0)), ((4, 4), (0, 0)),
+                               ((4, 2), (0, 2)), ((4, 0), (0, 4)), ((2, 0), (2, 4)), ((0, 0), (4, 4)))
 
 
 def create_rand_image(mode):
+    """
+    Method to create images with random splines
+    2 Modes:
+    :param mode: 0 -> return as array, 1 -> save the global_environment in chosen folder
+    :return: Array, if mode = 0
+    """
     # global_environment
     x_size = 2736
     y_size = 1824
     array = np.zeros((y_size, x_size), dtype='uint8', )
 
     # generating random points
-    x = np.arange(x_size/12, x_size, x_size / 12, int)
-    x_start = np.arange(0, int(x[0]), int(x[0])/3)
+    x = np.arange(x_size / 12, x_size, x_size / 12, int)
+    x_start = np.arange(0, int(x[0]), int(x[0]) / 3)
     x_end = np.arange(x[-1] + int(x[0]) / 3, x_size, int(x[0]) / 3)
     x = np.concatenate([x_start, x, x_end])
     y = np.random.randint(0, y_size / 2, len(x))
     # print(len(y))
 
     # fix first and last three spline points to make it more realistic
-    y[0] = y[1] = y[2] = y[-1] = y[-2] = y[-3] = y_size/4
+    y[0] = y[1] = y[2] = y[-1] = y[-2] = y[-3] = y_size / 4
 
     # generate cubic spline
     spline = scipy.interpolate.CubicSpline(x=x, y=y)
@@ -83,21 +110,23 @@ def create_rand_image(mode):
         # numpy array conversion to bool doesn't work properly, so I'm doing it manually
         for i in range(array.shape[1]):
             for j in range(array.shape[0]):
-                if not(array[j, i] == 0):
+                if not (array[j, i] == 0):
                     array_bool[j, i] = True
         return array_bool
 
 
-# function takes a boolean array and returns a list of global_environment coordinates, starting on the left side of
-# the spline and ending on the right side
-def extract_path(array) -> list[(int, int)]:
+def extract_path(array: np.ndarray) -> list[(int, int)]:
+    """
+    Takes a boolean array and returns a list of coordinates as (int, int) tuples, starting on the left side of the spline and ending on the right side
+    :param array: Single-width boolean array of spline learning environment
+    :return: List of coordinates
+    """
     height = array.shape[0]
     width = array.shape[1]
 
     path = list()
 
     startpoint = (int, int)
-    endpoint_found = False
 
     # loop to find the startpoint of spline
     # start iterating columns in top-left corner
@@ -169,94 +198,296 @@ def extract_path(array) -> list[(int, int)]:
     return path
 
 
+def determine_rotation_quality(local_environment: np.ndarray, orientation: int) -> int:
+    """
+    Determines if the angle of the contacts in relation to the wire is good/neutral/bad
+    :param local_environment: Current local environment of the calling State object
+    :param orientation: Current contact orientation
+    :return: Reward value for the provided parameters
+    """
+    # TODO test function
+    # First we simulate a rotation in either direction, check if a collision occurs and save the values as booleans
+    rot_cw = determine_rotation_collision(local_environment, False, (orientation + 1) % 8) and determine_collision(
+        local_environment, (orientation + 1) % 8)
+    rot_ccw = determine_rotation_collision(local_environment, True, (orientation + 7) % 8) and determine_collision(
+        local_environment, (orientation + 7) % 8)
+
+    # check if both simulated rotations were possible. This means the contact was as centered as possible on the wire. If so, return good rotation reward
+    if rot_ccw and rot_cw:
+        return good_rotation_reward
+    # check if only one value is True (rotation was only possible in one direction)
+    elif rot_cw or rot_ccw and not (rot_cw and rot_ccw):
+        # simulate another rotation in the direction that returned True
+        if rot_cw:
+            rot_cw_2 = determine_rotation_collision(local_environment, False, (orientation + 2) % 8) \
+                       and determine_collision(local_environment, (orientation + 2) % 8)
+            # check if, in total, 0 rotations were possible in one direction and 2 in the other. If so, it means the contacts could have been more centered on the wire. Return bad rotation reward
+            if rot_cw and rot_cw_2:
+                return bad_rotation_reward
+            else:
+                return neutral_rotation_reward
+        # do the same procedure for counter-clockwise rotation
+        else:
+            rot_ccw_2 = determine_rotation_collision(local_environment, True, (orientation + 6) % 8) \
+                        and determine_collision(local_environment, (orientation + 6) % 8)
+            if rot_ccw and rot_ccw_2:
+                return bad_rotation_reward
+            else:
+                return neutral_rotation_reward
+    else:
+        return neutral_rotation_reward
+
+
+def determine_rotation_collision(local_environment: np.ndarray, rot_dir: bool, orientation: int) -> bool:
+    """
+    Determines if the previously performed rotation has caused a collision
+    :param local_environment: 5 x 5 matrix of current environment
+    :param rot_dir: Rotation that was performed (False = Clockwise, True = Counter-Clockwise)
+    :param orientation: New
+    :return: Collision detected boolean
+    """
+    # TODO test function
+
+    # initialize return value
+    collision = False
+
+    # account for symmetry of orientations
+    orientation %= 4
+    if rot_dir:
+        # check if it's a counter-clockwise rotation
+        orientation += 4
+
+    # save points to be checked  in attribute for readability
+    checked_points = rotation_collision_detected_indices[orientation]
+
+    for i in range(2):
+        if local_environment[checked_points[i][0], checked_points[i][1]]:
+            collision = True
+            if collision:
+                break
+
+    return collision
+
+
+def determine_collision(local_environment: np.ndarray, orientation: int) -> bool:
+    """
+    Determines if the current position of the contacts is the same position as a piece of the wire
+    :param local_environment: Current local environment of calling State object
+    :param orientation: Current contact orientation
+    :return: Collision detected yes/no
+    """
+    # TODO test function
+
+    # initialize return value
+    collision = False
+
+    # save points to be checked  in attribute for readability
+    checked_points = contact_orientation_indices[orientation]
+
+    for i in range(2):
+        if local_environment[checked_points[i][0], checked_points[i][1]]:
+            collision = True
+            if collision:
+                break
+
+    return collision
+
+
 class State:
-    # Constructor parameters are:
-    # - The Global environment Matrix of the current Spline (as 2D int array)
-    # - the goal path returned by extract_path() function
-    # - the current midpoint position of the two contacts
-    # - current orientation of contacts, as a value of 0 - 7
-    # - current local goal as index to goal_path list
-    def __init__(self, global_environment: npt.ArrayLike, goal_path: list[tuple[int, int]], contact_position: tuple[int, int], contact_orientation: int, local_goal: int):
+    """
+    Basic state class for our machine learning model
+    """
+
+    def __init__(self, global_environment: np.ndarray, goal_path: list[tuple[int, int]],
+                 contact_position: tuple[int, int], contact_orientation: int, local_goal: int):
+        """
+        :param global_environment: The current global learning environment, as a rows x columns boolean array
+        :param goal_path: The list of local goals in the learning environment, as returned by the :func:`extract_path()` function
+        :param contact_position: Current midpoint position of the contacts, as a row x column coordinate tuple in the provided global_environment
+        :param contact_orientation: Current orientation of the contacts, as a value of -1 - 7, starting at 0 with left contact at center top and right contact at center bottom, and rotating clockwise in 45° steps. A value of -1 will auto-detect the best possible starting orientation for the given wire (only makes sense with local_goal set to 1)
+        :param local_goal: The current local goal, as an integer value indexing the provided goal_path list
+        """
         self.local_goal = goal_path[local_goal]
+        self.local_goal_val = local_goal
+        self.current_goal_path = goal_path
         self.contact_orientation = contact_orientation
         self.contact_position = contact_position
-        self.local_environment = np.zeros((5, 5), dtype=int)
+        self.local_environment = np.zeros((5, 5), dtype='uint8')
 
         # Key for filling the local environment matrix:
-        # - 0 = empty space
-        # - 1 = wire
-        # (- 2 = current local goal. This is only implemented in the __repr__ method further down)
-        # - 3 = left contact
-        # 4 = right contact
+        # 0 = empty space
+        # 1 = wire
         for i in range(5):
             for j in range(5):
-                self.local_environment[j, i] = int(global_environment[self.contact_position[0] - 2 + j, self.contact_position[1] - 2 + i])
-        match self.contact_orientation:
-            # 3 denotes the left contact
-            # 4 denotes the right contact
-            case 0:
-                # left contact center top
-                # right contact center bottom
-                self.local_environment[0, 2] = 3
-                self.local_environment[4, 2] = 4
-            case 1:
-                # left contact top right
-                # right contact bottom left
-                self.local_environment[0, 4] = 3
-                self.local_environment[4, 0] = 4
-            case 2:
-                # left contact center right
-                # right contact center left
-                self.local_environment[2, 4] = 3
-                self.local_environment[2, 0] = 4
-            case 3:
-                # left contact bottom right
-                # right contact top left
-                self.local_environment[4, 4] = 3
-                self.local_environment[0, 0] = 4
-            case 4:
-                # left contact center bottom
-                # right contact center top
-                self.local_environment[4, 2] = 3
-                self.local_environment[0, 2] = 4
-            case 5:
-                # left contact bottom left
-                # right contact top right
-                self.local_environment[4, 0] = 3
-                self.local_environment[0, 4] = 4
-            case 6:
-                # left contact center left
-                # right contact center right
-                self.local_environment[2, 0] = 3
-                self.local_environment[2, 4] = 4
-            case 7:
-                # left contact top left
-                # right contact bottom right
-                self.local_environment[0, 0] = 3
-                self.local_environment[4, 4] = 4
-            case _:
-                print("Invalid contact orientation provided! Use numbers from 0-7")
+                self.local_environment[j, i] = int(
+                    global_environment[self.contact_position[0] - 2 + j, self.contact_position[1] - 2 + i])
+
+        if self.contact_orientation > 7 or self.contact_orientation < -1:
+            raise ValueError("Invalid contact orientation provided! Use values from 0-7")
 
     def __repr__(self):
-        # reproduces the 5x5 local environment matrix and tries to add the local goal (2) to it.
-        # I do this because I do not want the local goal in the actual environment matrix, but I do want it printed
+        """
+        Reproduces the 5x5 local environment matrix and tries to add the local goal (2) as well as contacts (3), (4) to it.
+        I do this because I do not want the local goal or contacts in the actual environment matrix, but I do want them printed
+        """
+        # TODO test method changes
         repr_matr = np.copy(self.local_environment)
+
+        # Key for filling the local environment matrix:
+        # 0 = empty space
+        # 1 = wire
+        # 2 = current local goal (if possible to add)
+        # 3 = left contact
+        # 4 = right contact
         try:
-            repr_matr[self.local_goal[0] - self.contact_position[0] + 2, self.local_goal[1] - self.contact_position[1] + 2] = 2
+            repr_matr[self.local_goal[0] - self.contact_position[0] + 2, self.local_goal[1] - self.contact_position[
+                1] + 2] = 2
         except IndexError:
             print("Local Goal outside of Local Environment!\n\n")
 
-        # I am aware that the following line of code is a crime against humanity, but I won't be doing anything about it
-        return "{}:\n\n{} {} {} {} {}\n{} {} {} {} {}\n{} {} {} {} {}\n{} {} {} {} {}\n{} {} {} {} {}\n\n".format(type(self).__name__, repr_matr[0, 0], repr_matr[0, 1], repr_matr[0, 2], repr_matr[0, 3], repr_matr[0, 4], repr_matr[1, 0], repr_matr[1, 1], repr_matr[1, 2], repr_matr[1, 3], repr_matr[1, 4], repr_matr[2, 0], repr_matr[2, 1], repr_matr[2, 2], repr_matr[2, 3], repr_matr[2, 4], repr_matr[3, 0], repr_matr[3, 1], repr_matr[3, 2], repr_matr[3, 3], repr_matr[3, 4], repr_matr[4, 0], repr_matr[4, 1], repr_matr[4, 2], repr_matr[4, 3], repr_matr[4, 4])
+        # determine positioning of contacts from contact orientation value
+        left_contact = contact_orientation_indices[self.contact_orientation][0]
+        right_contact = contact_orientation_indices[self.contact_orientation][1]
+        repr_matr[left_contact[0], left_contact[1]] = 3
+        repr_matr[right_contact[0], right_contact[1]] = 4
 
-    # def move_right(self):
+        # I am aware that the following lines of code are a crime against humanity, but I won't be doing anything about it
+        return "{}:\n\n{} {} {} {} {}\n{} {} {} {} {}\n{} {} {} {} {}\n{} {} {} {} {}\n{} {} {} {} {}\n\n".format(
+            type(self).__name__, repr_matr[0, 0], repr_matr[0, 1], repr_matr[0, 2], repr_matr[0, 3], repr_matr[0, 4],
+            repr_matr[1, 0], repr_matr[1, 1], repr_matr[1, 2], repr_matr[1, 3], repr_matr[1, 4], repr_matr[2, 0],
+            repr_matr[2, 1], repr_matr[2, 2], repr_matr[2, 3], repr_matr[2, 4], repr_matr[3, 0], repr_matr[3, 1],
+            repr_matr[3, 2], repr_matr[3, 3], repr_matr[3, 4], repr_matr[4, 0], repr_matr[4, 1], repr_matr[4, 2],
+            repr_matr[4, 3], repr_matr[4, 4])
 
-    # def move_left(self)
+    def set_next_local_goal(self) -> None:
+        """
+        Sets next local goal. Self-explanatory
+        """
+        self.local_goal += 1
 
-    # def move_up(self)
+    def movement_reward(self, movement_type: int) -> int:
+        """
+        Determines the reward value for the movement that was performed. To be used in return values of State class movement methods. If a local goal was reached, it also set the new local goal for the calling State object
+        :param movement_type: The Type of movement that was done. Values 0 - 3 are (in order) movement right, left, up, down. Values 4 & 5 are rotation clockwise & counter-clockwise
+        :return: Reward value
+        """
+        # TODO test method
 
-    # def move_down(self):
+        # check if a collision occurred
+        if determine_collision(self.local_environment, self.contact_orientation):
+            return collision_reward
 
-    # def rotate_cw(self):
+        # if a rotation was performed, check if this caused a collision on the way:
+        if movement_type == 4:
+            if determine_rotation_collision(self.local_environment, False, self.contact_orientation):
+                return collision_reward
+        elif movement_type == 5:
+            if determine_rotation_collision(self.local_environment, True, self.contact_orientation):
+                return collision_reward
 
-    # def rotate_ccw(self):
+        # init default reward value
+        reward = local_goal_not_reached_reward
+        local_goal_reached = False
+
+        # % 4 because reached goal indices repeat
+        checked_points = goal_reached_indices[self.contact_orientation % 4]
+
+        # check if local goal is still in local environment
+        local_goal_in_local_environment = (self.local_goal[0] - self.contact_position[0] + 2,
+                                           self.local_goal[1] - self.contact_position[1] + 2)
+
+        if max(local_goal_in_local_environment) > 4 or min(local_goal_in_local_environment) < 0:
+            # this means the local goal moved out of the local environment
+            return out_of_bounds_reward
+
+        # if local goal is in bounds, check if it has been reached
+        for i in range(2):
+            if checked_points[i] == local_goal_in_local_environment:
+                # this means the local goal has been reached, albeit not with the center point
+                local_goal_reached = True
+                if local_goal_reached:
+                    reward = local_goal_reached_reward
+                    break
+
+        # check if local goal has been reached with center
+        if local_goal_in_local_environment == (2, 2):
+            local_goal_reached = True
+            reward = local_goal_reached_with_center_reward
+
+        # only if a translation was performed and goal was reached: check the quality of the contact's angle around the wire
+        if movement_type < 4 and local_goal_reached:
+            reward += determine_rotation_quality(self.local_environment, self.contact_orientation)
+
+        # set next local goal if it has been reached
+        if local_goal_reached:
+            self.set_next_local_goal()
+
+        # if nothing has been returned yet (no out of bounds, no collision), return calculated reward
+        return reward
+
+    # TODO test all movement methods
+    def move_right(self, global_environment: np.ndarray) -> ('State', int):
+        """
+        Method that creates a new state object and returns a reward from a movement to the right in the provided global environment
+        :param global_environment: The global environment in which the movement is to take place
+        :return: Tuple in which value at index 0 is the new State object, and value at index 1 the reward resulting from the movement
+        """
+        new_contact_position = (self.contact_position[0], self.contact_position[1] + 1)
+        new_state = State(global_environment, self.current_goal_path, new_contact_position, self.contact_orientation,
+                          self.local_goal_val)
+        return new_state, new_state.movement_reward(0)
+
+    def move_left(self, global_environment: np.ndarray) -> ('State', int):
+        """
+        Method that creates a new state object and returns a reward from a movement to the left in the provided global environment
+        :param global_environment: The global environment in which the movement is to take place
+        :return: Tuple in which value at index 0 is the new State object, and value at index 1 the reward resulting from the movement
+        """
+        new_contact_position = (self.contact_position[0], self.contact_position[1] - 1)
+        new_state = State(global_environment, self.current_goal_path, new_contact_position, self.contact_orientation,
+                          self.local_goal_val)
+        return new_state, new_state.movement_reward(1)
+
+    def move_up(self, global_environment: np.ndarray) -> ('State', int):
+        """
+        Method that creates a new state object and returns a reward from a movement upwards in the provided global environment
+        :param global_environment: The global environment in which the movement is to take place
+        :return: Tuple in which value at index 0 is the new State object, and value at index 1 the reward resulting from the movement
+        """
+        new_contact_position = (self.contact_position[0] - 1, self.contact_position[1])
+        new_state = State(global_environment, self.current_goal_path, new_contact_position, self.contact_orientation,
+                          self.local_goal_val)
+        return new_state, new_state.movement_reward(2)
+
+    def move_down(self, global_environment: np.ndarray) -> ('State', int):
+        """
+        Method that creates a new state object and returns a reward from a movement downwards in the provided global environment
+        :param global_environment: The global environment in which the movement is to take place
+        :return: Tuple in which value at index 0 is the new State object, and value at index 1 the reward resulting from the movement
+        """
+        new_contact_position = (self.contact_position[0] + 1, self.contact_position[1] - 1)
+        new_state = State(global_environment, self.current_goal_path, new_contact_position, self.contact_orientation,
+                          self.local_goal_val)
+        return new_state, new_state.movement_reward(3)
+
+    def rotate_cw(self, global_environment: np.ndarray) -> ('State', int):
+        """
+        Method that creates a new state object and returns a reward from a clockwise rotation in the provided global environment
+        :param global_environment: The global environment in which the movement is to take place
+        :return: Tuple in which value at index 0 is the new State object, and value at index 1 the reward resulting from the movement
+        """
+        new_orientation = (self.contact_orientation + 1) % 8
+        new_state = State(global_environment, self.current_goal_path, self.contact_position, new_orientation,
+                          self.local_goal_val)
+        return new_state, new_state.movement_reward(4)
+
+    def rotate_ccw(self, global_environment: np.ndarray) -> ('State', int):
+        """
+        Method that creates a new state object and returns a reward from a counter-clockwise rotation in the provided global environment
+        :param global_environment: The global environment in which the movement is to take place
+        :return: Tuple in which value at index 0 is the new State object, and value at index 1 the reward resulting from the movement
+        """
+        new_orientation = (self.contact_orientation + 7) % 8
+        new_state = State(global_environment, self.current_goal_path, self.contact_position, new_orientation,
+                          self.local_goal_val)
+        return new_state, new_state.movement_reward(5)
