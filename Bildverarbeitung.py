@@ -7,12 +7,12 @@ from skimage.util import invert
 import numpy
 from sklearn.metrics import r2_score
 
-def reduce_Draht_to_Line(draht):
 
-    # original image to grey image
+def reduce_draht_to_line(draht):
+    # original global_environment to grey global_environment
     img_gray = cv2.cvtColor(draht, cv2.COLOR_BGR2GRAY)
 
-    # blur image for better edge detection with median blur
+    # blur global_environment for better edge detection with median blur
     img_blur = cv2.medianBlur(img_gray, 15)
 
     # Canny edge detection
@@ -26,8 +26,7 @@ def reduce_Draht_to_Line(draht):
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8, 4),
                              sharex=True, sharey=True)
 
-
-    # ploting the picture
+    # plotting the picture
     ax = axes.ravel()
     ax[0].imshow(edges, cmap=plt.cm.gray)
     ax[0].axis('off')
