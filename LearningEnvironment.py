@@ -7,7 +7,6 @@ import tkinter
 from tkinter import filedialog
 from skimage.morphology import skeletonize
 
-# TODO Why are these imports here? Do we need them or can they go
 # import matplotlib.pyplot as plot
 # from PIL import Image
 # import os
@@ -48,8 +47,8 @@ def create_rand_image(mode):
     :return: Array, if mode = 0
     """
     # global_environment
-    x_size = 2736
-    y_size = 1824
+    x_size = 1000
+    y_size = 500
     array = np.zeros((y_size, x_size), dtype='uint8', )
 
     # generating random points
@@ -57,25 +56,39 @@ def create_rand_image(mode):
     x_start = np.arange(0, int(x[0]), int(x[0]) / 3)
     x_end = np.arange(x[-1] + int(x[0]) / 3, x_size, int(x[0]) / 3)
     x = np.concatenate([x_start, x, x_end])
-    y = np.random.randint(0, y_size / 2, len(x))
-    # print(len(y))
+    y = np.random.randint(0, y_size, len(x))
+    print(len(y))
+
+    # fixing all spline points to test code
+    # y[3] = 25 + 5
+    # y[4] = 25 + 10
+    # y[5] = 25 + 15
+    # y[6] = 25 + 5
+    # y[7] = 25 + 2
+    # y[8] = 25 - 2
+    # y[9] = 25 - 5
+    # y[10] = 25 - 12
+    # y[11] = 25 - 20
+    # y[12] = 25 - 10
+    # y[13] = 25
+    # y[14] = 25 + 5
 
     # fix first and last three spline points to make it more realistic
-    y[0] = y[1] = y[2] = y[-1] = y[-2] = y[-3] = y_size / 4
+    y[0] = y[1] = y[2] = y[-1] = y[-2] = y[-3] = y_size / 2
 
     # generate cubic spline
     spline = scipy.interpolate.CubicSpline(x=x, y=y)
-
-    # plot the spline
-    xs = np.arange(0, x_size, 1)
-    fig, ax = plt.subplots(figsize=(6.5, 4))
-    ax.plot(x, y, 'o', label='data')
-    ax.plot(xs, spline(xs), label="S")
-    plt.show()
+    #
+    # # plot the spline
+    # xs = np.arange(0, x_size, 1)
+    # fig, ax = plt.subplots(figsize=(6.5, 4))
+    # ax.plot(x, y, 'o', label='data')
+    # ax.plot(xs, spline(xs), label="S")
+    # plt.show()
 
     # merge into array
     for i in range(x_size):
-        array[int(spline(i) + 175), i] = 255
+        array[int(spline(i)), i] = 255
 
     # fill up empty space
     kernel = np.ones((7, 7), np.uint8)
@@ -205,12 +218,12 @@ def determine_rotation_quality(local_environment: np.ndarray, orientation: int) 
     :param orientation: Current contact orientation
     :return: Reward value for the provided parameters
     """
-    # TODO test function
+
     # First we simulate a rotation in either direction, check if a collision occurs and save the values as booleans
-    rot_cw = determine_rotation_collision(local_environment, False, (orientation + 1) % 8) and determine_collision(
-        local_environment, (orientation + 1) % 8)
-    rot_ccw = determine_rotation_collision(local_environment, True, (orientation + 7) % 8) and determine_collision(
-        local_environment, (orientation + 7) % 8)
+    rot_cw = not (determine_rotation_collision(local_environment, False, (orientation + 1) % 8) or determine_collision(
+        local_environment, (orientation + 1) % 8))
+    rot_ccw = not (determine_rotation_collision(local_environment, True, (orientation + 7) % 8) or determine_collision(
+        local_environment, (orientation + 7) % 8))
 
     # check if both simulated rotations were possible. This means the contact was as centered as possible on the wire. If so, return good rotation reward
     if rot_ccw and rot_cw:
@@ -219,8 +232,8 @@ def determine_rotation_quality(local_environment: np.ndarray, orientation: int) 
     elif rot_cw or rot_ccw and not (rot_cw and rot_ccw):
         # simulate another rotation in the direction that returned True
         if rot_cw:
-            rot_cw_2 = determine_rotation_collision(local_environment, False, (orientation + 2) % 8) \
-                       and determine_collision(local_environment, (orientation + 2) % 8)
+            rot_cw_2 = not (determine_rotation_collision(local_environment, False, (orientation + 2) % 8)
+                            or determine_collision(local_environment, (orientation + 2) % 8))
             # check if, in total, 0 rotations were possible in one direction and 2 in the other. If so, it means the contacts could have been more centered on the wire. Return bad rotation reward
             if rot_cw and rot_cw_2:
                 return bad_rotation_reward
@@ -228,8 +241,8 @@ def determine_rotation_quality(local_environment: np.ndarray, orientation: int) 
                 return neutral_rotation_reward
         # do the same procedure for counter-clockwise rotation
         else:
-            rot_ccw_2 = determine_rotation_collision(local_environment, True, (orientation + 6) % 8) \
-                        and determine_collision(local_environment, (orientation + 6) % 8)
+            rot_ccw_2 = not (determine_rotation_collision(local_environment, True, (orientation + 6) % 8)
+                             or determine_collision(local_environment, (orientation + 6) % 8))
             if rot_ccw and rot_ccw_2:
                 return bad_rotation_reward
             else:
@@ -246,7 +259,6 @@ def determine_rotation_collision(local_environment: np.ndarray, rot_dir: bool, o
     :param orientation: New
     :return: Collision detected boolean
     """
-    # TODO test function
 
     # initialize return value
     collision = False
@@ -276,7 +288,6 @@ def determine_collision(local_environment: np.ndarray, orientation: int) -> bool
     :param orientation: Current contact orientation
     :return: Collision detected yes/no
     """
-    # TODO test function
 
     # initialize return value
     collision = False
@@ -330,7 +341,7 @@ class State:
         Reproduces the 5x5 local environment matrix and tries to add the local goal (2) as well as contacts (3), (4) to it.
         I do this because I do not want the local goal or contacts in the actual environment matrix, but I do want them printed
         """
-        # TODO test method changes
+
         repr_matr = np.copy(self.local_environment)
 
         # Key for filling the local environment matrix:
@@ -363,7 +374,11 @@ class State:
         """
         Sets next local goal. Self-explanatory
         """
-        self.local_goal += 1
+        if len(self.current_goal_path) > self.local_goal_val + 1:
+            self.local_goal_val += 1
+            self.local_goal = self.current_goal_path[self.local_goal_val]
+        else:
+            print("End of spline reached!")
 
     def movement_reward(self, movement_type: int) -> int:
         """
@@ -371,7 +386,6 @@ class State:
         :param movement_type: The Type of movement that was done. Values 0 - 3 are (in order) movement right, left, up, down. Values 4 & 5 are rotation clockwise & counter-clockwise
         :return: Reward value
         """
-        # TODO test method
 
         # check if a collision occurred
         if determine_collision(self.local_environment, self.contact_orientation):
@@ -425,7 +439,6 @@ class State:
         # if nothing has been returned yet (no out of bounds, no collision), return calculated reward
         return reward
 
-    # TODO test all movement methods
     def move_right(self, global_environment: np.ndarray) -> ('State', int):
         """
         Method that creates a new state object and returns a reward from a movement to the right in the provided global environment
