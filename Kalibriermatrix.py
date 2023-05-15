@@ -12,7 +12,6 @@ pixel_cords = np.ones((3, 4))
 real_cords = np.ones((4, 4))
 xi, yi = 0, 0
 
-
 # function to get the pixel cords
 # on mouseclick
 def click_event(event, x, y, flags, params):
@@ -38,8 +37,9 @@ for i in range(4):
     # save cords in 4x2 matrix
     pixel_cords[0, i] = xi
     pixel_cords[1, i] = yi
-
 print(pixel_cords)
+print(np.linalg.pinv(pixel_cords))
+
 
 # ask for real cords
 for i in range(4):
@@ -49,9 +49,8 @@ for i in range(4):
     real_cords[1, i] = input()
     print("Point" + str(i + 1) + " z :")
     real_cords[2, i] = input()
-print(real_cords)
-
-k = np.matmul(np.linalg.inv(real_cords), pixel_cords)
+inv_pixel_cords = np.linalg.pinv(pixel_cords)
+k = real_cords.dot(inv_pixel_cords)
 print(k)
 
 
