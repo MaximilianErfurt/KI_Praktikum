@@ -47,8 +47,8 @@ def create_rand_image(mode):
     :return: Array, if mode = 0
     """
     # global_environment
-    x_size = 1000
-    y_size = 500
+    x_size = 100
+    y_size = 50
     array = np.zeros((y_size, x_size), dtype='uint8', )
 
     # generating random points
@@ -60,18 +60,18 @@ def create_rand_image(mode):
     print(len(y))
 
     # fixing all spline points to test code
-    # y[3] = 25 + 5
-    # y[4] = 25 + 10
-    # y[5] = 25 + 15
-    # y[6] = 25 + 5
-    # y[7] = 25 + 2
-    # y[8] = 25 - 2
-    # y[9] = 25 - 5
-    # y[10] = 25 - 12
-    # y[11] = 25 - 20
-    # y[12] = 25 - 10
-    # y[13] = 25
-    # y[14] = 25 + 5
+    y[3] = 25 + 5
+    y[4] = 25 + 10
+    y[5] = 25 + 15
+    y[6] = 25 + 5
+    y[7] = 25 + 2
+    y[8] = 25 - 2
+    y[9] = 25 - 5
+    y[10] = 25 - 12
+    y[11] = 25 - 20
+    y[12] = 25 - 10
+    y[13] = 25
+    y[14] = 25 + 5
 
     # fix first and last three spline points to make it more realistic
     y[0] = y[1] = y[2] = y[-1] = y[-2] = y[-3] = y_size / 2
@@ -369,6 +369,32 @@ class State:
             repr_matr[2, 1], repr_matr[2, 2], repr_matr[2, 3], repr_matr[2, 4], repr_matr[3, 0], repr_matr[3, 1],
             repr_matr[3, 2], repr_matr[3, 3], repr_matr[3, 4], repr_matr[4, 0], repr_matr[4, 1], repr_matr[4, 2],
             repr_matr[4, 3], repr_matr[4, 4])
+
+    def __hash__(self) -> int:
+        """
+        Takes local environment matrix and contact orientation and converts them into a unique value
+        :return: binary hash, as integer value. Bits 0-24 are the local environment matrix, bits 25-27 are the contact orientation, bit 28 is always a 1, in order to fix word length to 29 bits
+
+        """
+
+        # init hashcode
+        hashcode = 0
+
+        # convert environment to bytes
+        environment_bytes = self.local_environment.tobytes()
+
+        # fill each bit value, starting from the LSB
+        for i in range(25):
+            val = environment_bytes[- i - 1] << i
+            hashcode += val
+
+        # fill bits 25-27 with contact orientation value
+        hashcode += self.contact_orientation << 25
+
+        # set bit 28 to 1
+        hashcode += 1 << 28
+
+        return hashcode
 
     def set_next_local_goal(self) -> None:
         """
