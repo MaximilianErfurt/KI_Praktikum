@@ -6,20 +6,24 @@ import Bildverarbeitung as Bv
 import QTable
 
 generated_spline = Le.create_rand_image(0)
-print(generated_spline)
 path = Le.extract_path(generated_spline)
-print(Le.extract_path.__doc__)
 
 # create test Object from State class
-test_state = Le.State(generated_spline, path, path[0], 0, 1)
-print(test_state)
+test_state = Le.State(generated_spline, path, path[0], -1, 1)
+new_state = test_state.move_left(generated_spline)
 
 
 # img = cv2.imread('Draht.jpeg')
 # Bv.reduce_Draht_to_Line(draht=img)
 
-qtable = QTable.new_q_table()
-# training goes here
+try:
+    qtable = np.load('qtable.npy', allow_pickle=True).item()
+except FileNotFoundError:
+    qtable = {}
 
+qtable = QTable.train_wire(generated_spline, path, qtable, 100, 0.9, 0.3, 0.9)
+
+# print(len(path))
 
 np.save('qtable.npy', qtable)
+
