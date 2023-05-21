@@ -69,9 +69,9 @@ def create_rand_image(mode):
     y[9] = 25 - 5
     y[10] = 25 - 12
     y[11] = 25 - 20
-    y[12] = 25 - 10
+    y[12] = 25
     y[13] = 25
-    y[14] = 25 + 5
+    y[14] = 25
 
     # fix first and last three spline points to make it more realistic
     y[0] = y[1] = y[2] = y[-1] = y[-2] = y[-3] = y_size / 2
@@ -100,6 +100,7 @@ def create_rand_image(mode):
     # loop to change all the values of the first 3 and last 3 columns to 0, as those sometimes turn out buggy
     for i in range(3):
         array[:, i] = array[:, - i - 1] = np.zeros(array.shape[0])
+    array = skeletonize(array)
 
     # plot the graph
     # cv2.imshow("Canvas", array)
@@ -321,7 +322,6 @@ class State:
         self.local_goal = goal_path[local_goal]
         self.local_goal_val = local_goal
         self.current_goal_path = goal_path
-        self.contact_orientation = contact_orientation
         self.contact_position = contact_position
         self.local_environment = np.zeros((5, 5), dtype='uint8')
 
@@ -330,11 +330,27 @@ class State:
         # 1 = wire
         for i in range(5):
             for j in range(5):
+                if self.contact_position[0] - 2 + j < 0 or self.contact_position[1] - 2 + i < 0:
+                    raise IndexError("Moved out of global environment boundaries!")
                 self.local_environment[j, i] = int(
                     global_environment[self.contact_position[0] - 2 + j, self.contact_position[1] - 2 + i])
 
+        if contact_orientation == -1:
+            if self.local_environment[1, 2]:
+                self.contact_orientation = 6
+            elif self.local_environment[3, 2]:
+                self.contact_orientation = 2
+            elif self.local_environment[1, 3] or self.local_environment[2, 3] or self.local_environment[3, 3]:
+                self.contact_orientation = 0
+            else:
+                self.contact_orientation = 4
+        else:
+            self.contact_orientation = contact_orientation
+
         if self.contact_orientation > 7 or self.contact_orientation < -1:
             raise ValueError("Invalid contact orientation provided! Use values from 0-7")
+
+        self.hashcode = self.__hash__()
 
     def __repr__(self):
         """
@@ -400,11 +416,28 @@ class State:
         """
         Sets next local goal. Self-explanatory
         """
-        if len(self.current_goal_path) > self.local_goal_val + 1:
+        if len(self.current_goal_path) > self.local_goal_val + 1 and self.local_goal_val > 0:
             self.local_goal_val += 1
             self.local_goal = self.current_goal_path[self.local_goal_val]
         else:
             print("End of spline reached!")
+
+    def movement(self, global_environment: np.ndarray, movement_type: int) -> ('State', int):
+        match movement_type:
+            case 0:
+                return self.move_right(global_environment)
+            case 1:
+                return self.move_left(global_environment)
+            case 2:
+                return self.move_up(global_environment)
+            case 3:
+                return self.move_down(global_environment)
+            case 4:
+                return self.rotate_cw(global_environment)
+            case 5:
+                return self.rotate_ccw(global_environment)
+            case _:
+                raise ValueError("Invalid movement type!")
 
     def movement_reward(self, movement_type: int) -> int:
         """
@@ -504,7 +537,7 @@ class State:
         :param global_environment: The global environment in which the movement is to take place
         :return: Tuple in which value at index 0 is the new State object, and value at index 1 the reward resulting from the movement
         """
-        new_contact_position = (self.contact_position[0] + 1, self.contact_position[1] - 1)
+        new_contact_position = (self.contact_position[0] + 1, self.contact_position[1])
         new_state = State(global_environment, self.current_goal_path, new_contact_position, self.contact_orientation,
                           self.local_goal_val)
         return new_state, new_state.movement_reward(3)
