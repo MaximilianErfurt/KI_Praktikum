@@ -47,8 +47,8 @@ def create_rand_image(mode):
     :return: Array, if mode = 0
     """
     # global_environment
-    x_size = 100
-    y_size = 50
+    x_size = 1000
+    y_size = 500
     array = np.zeros((y_size, x_size), dtype='uint8', )
 
     # generating random points
@@ -56,22 +56,22 @@ def create_rand_image(mode):
     x_start = np.arange(0, int(x[0]), int(x[0]) / 3)
     x_end = np.arange(x[-1] + int(x[0]) / 3, x_size, int(x[0]) / 3)
     x = np.concatenate([x_start, x, x_end])
-    y = np.random.randint(0, y_size, len(x))
+    y = np.random.randint(0 + int(0.2 * y_size), y_size - int(0.2 * y_size), len(x))
     print(len(y))
 
-    # fixing all spline points to test code
-    y[3] = 25 + 5
-    y[4] = 25 + 10
-    y[5] = 25 + 15
-    y[6] = 25 + 5
-    y[7] = 25 + 2
-    y[8] = 25 - 2
-    y[9] = 25 - 5
-    y[10] = 25 - 12
-    y[11] = 25 - 20
-    y[12] = 25
-    y[13] = 25
-    y[14] = 25
+    # # fixing all spline points to test code
+    # y[3] = 25 + 5
+    # y[4] = 25 + 10
+    # y[5] = 25 + 15
+    # y[6] = 25 + 5
+    # y[7] = 25 + 2
+    # y[8] = 25 - 2
+    # y[9] = 25 - 5
+    # y[10] = 25 - 12
+    # y[11] = 25 - 20
+    # y[12] = 25
+    # y[13] = 25
+    # y[14] = 25
 
     # fix first and last three spline points to make it more realistic
     y[0] = y[1] = y[2] = y[-1] = y[-2] = y[-3] = y_size / 2
@@ -311,19 +311,21 @@ class State:
     """
 
     def __init__(self, global_environment: np.ndarray, goal_path: list[tuple[int, int]],
-                 contact_position: tuple[int, int], contact_orientation: int, local_goal: int):
+                 contact_position: tuple[int, int], contact_orientation: int, local_goal: int, previous_movement: int):
         """
         :param global_environment: The current global learning environment, as a rows x columns boolean array
         :param goal_path: The list of local goals in the learning environment, as returned by the :func:`extract_path()` function
         :param contact_position: Current midpoint position of the contacts, as a row x column coordinate tuple in the provided global_environment
         :param contact_orientation: Current orientation of the contacts, as a value of -1 - 7, starting at 0 with left contact at center top and right contact at center bottom, and rotating clockwise in 45° steps. A value of -1 will auto-detect the best possible starting orientation for the given wire (only makes sense with local_goal set to 1)
         :param local_goal: The current local goal, as an integer value indexing the provided goal_path list
+        :param previous_movement: The movement that was made in order to get to this state. Necessary so the ML agent does not learn to move back and forth indefinitely.
         """
         self.local_goal = goal_path[local_goal]
         self.local_goal_val = local_goal
         self.current_goal_path = goal_path
         self.contact_position = contact_position
         self.local_environment = np.zeros((5, 5), dtype='uint8')
+        self.previous_movement = previous_movement
 
         # Key for filling the local environment matrix:
         # 0 = empty space
@@ -389,7 +391,7 @@ class State:
     def __hash__(self) -> int:
         """
         Takes local environment matrix and contact orientation and converts them into a unique value
-        :return: binary hash, as integer value. Bits 0-24 are the local environment matrix, bits 25-27 are the contact orientation, bit 28 is always a 1, in order to fix word length to 29 bits
+        :return: binary hash, as integer value. Bits 0-24 are the local environment matrix, bits 25-27 are the contact orientation, bit 28 - 30 the previously made movement
 
         """
 
@@ -407,8 +409,8 @@ class State:
         # fill bits 25-27 with contact orientation value
         hashcode += self.contact_orientation << 25
 
-        # set bit 28 to 1
-        hashcode += 1 << 28
+        # fill bits 28-30 with the previously made movement value
+        hashcode += self.previous_movement << 28
 
         return hashcode
 
@@ -420,7 +422,8 @@ class State:
             self.local_goal_val += 1
             self.local_goal = self.current_goal_path[self.local_goal_val]
         else:
-            print("End of spline reached!")
+            # print("End of spline reached!")
+            pass
 
     def movement(self, global_environment: np.ndarray, movement_type: int) -> ('State', int):
         match movement_type:
@@ -506,7 +509,7 @@ class State:
         """
         new_contact_position = (self.contact_position[0], self.contact_position[1] + 1)
         new_state = State(global_environment, self.current_goal_path, new_contact_position, self.contact_orientation,
-                          self.local_goal_val)
+                          self.local_goal_val, 0)
         return new_state, new_state.movement_reward(0)
 
     def move_left(self, global_environment: np.ndarray) -> ('State', int):
@@ -517,7 +520,7 @@ class State:
         """
         new_contact_position = (self.contact_position[0], self.contact_position[1] - 1)
         new_state = State(global_environment, self.current_goal_path, new_contact_position, self.contact_orientation,
-                          self.local_goal_val)
+                          self.local_goal_val, 1)
         return new_state, new_state.movement_reward(1)
 
     def move_up(self, global_environment: np.ndarray) -> ('State', int):
@@ -528,7 +531,7 @@ class State:
         """
         new_contact_position = (self.contact_position[0] - 1, self.contact_position[1])
         new_state = State(global_environment, self.current_goal_path, new_contact_position, self.contact_orientation,
-                          self.local_goal_val)
+                          self.local_goal_val, 2)
         return new_state, new_state.movement_reward(2)
 
     def move_down(self, global_environment: np.ndarray) -> ('State', int):
@@ -539,7 +542,7 @@ class State:
         """
         new_contact_position = (self.contact_position[0] + 1, self.contact_position[1])
         new_state = State(global_environment, self.current_goal_path, new_contact_position, self.contact_orientation,
-                          self.local_goal_val)
+                          self.local_goal_val, 3)
         return new_state, new_state.movement_reward(3)
 
     def rotate_cw(self, global_environment: np.ndarray) -> ('State', int):
@@ -550,7 +553,7 @@ class State:
         """
         new_orientation = (self.contact_orientation + 1) % 8
         new_state = State(global_environment, self.current_goal_path, self.contact_position, new_orientation,
-                          self.local_goal_val)
+                          self.local_goal_val, 4)
         return new_state, new_state.movement_reward(4)
 
     def rotate_ccw(self, global_environment: np.ndarray) -> ('State', int):
@@ -561,5 +564,5 @@ class State:
         """
         new_orientation = (self.contact_orientation + 7) % 8
         new_state = State(global_environment, self.current_goal_path, self.contact_position, new_orientation,
-                          self.local_goal_val)
+                          self.local_goal_val, 5)
         return new_state, new_state.movement_reward(5)
