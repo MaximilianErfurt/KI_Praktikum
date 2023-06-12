@@ -12,17 +12,19 @@ import LearningEnvironment as Le
 
 
 def visualise(img, movement_string, x_start, y_start, movements):
-
+    cv2.namedWindow("Linie", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Linie", 1280, 960)
     cv2.imshow("Linie", img)
-    #cv2.imshow("State", state)
+    # cv2.imshow("State", state)
     cv2.waitKey(100)
     for entry in movements:
         cv2.imshow("Linie", img)
         # cv2.imshow("State", state)
-        cv2.waitKey(100)
-        y = entry[0][1]
-        x = entry[0][0]
+        cv2.waitKey(10)
+        y = entry[0][0]
+        x = entry[0][1]
         current_orientation = Le.contact_orientation_indices[entry[2]]
         img[y - 2 + current_orientation[0][0], x - 2 + current_orientation[0][1]] = [0, 255, 0]
         img[y - 2 + current_orientation[1][0], x - 2 + current_orientation[1][1]] = [255, 0, 0]
         img[y, x] = [0, 0, 255]
+        cv2.waitKey(0)

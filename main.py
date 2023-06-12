@@ -27,7 +27,7 @@ for i in range(1):
     except FileNotFoundError:
         qtable = {}
 
-    qtable = QTable.train_wire(generated_spline, path, qtable, 10, 0.8, 0.3, 0.9)
+    qtable = QTable.train_wire(generated_spline, path, qtable, 5, 0.8, 0.3, 0.9)
 
     # qtable_sorted = dict(sorted(qtable.items()))
 
@@ -40,7 +40,6 @@ except FileNotFoundError:
 
 movements = QTable.optimal_path(generated_spline, path, qtable)
 f = open('movements.txt', 'w')
-Le.contact_orientation_indices
 movement = ""
 for entry in movements:
     match entry[1]:
@@ -62,7 +61,7 @@ for entry in movements:
 
 
 img = cv2.imread('KalibrierDraht.jpeg')
-cv2.imshow("img",img)
+cv2.imshow("img", img)
 cv2.waitKey(0)
 cv2.destroyWindow("img")
 
@@ -71,7 +70,13 @@ x, y = Bv.find_start_point(line)
 
 
 line = Bv.back_to_rgb(line)
-cv2.imshow("img",line)
+cv2.imshow("img", line)
 cv2.waitKey(0)
+img = np.zeros((generated_spline.shape[0], generated_spline.shape[1], 3))
+for i in range(generated_spline.shape[1]):
+    for j in range(generated_spline.shape[0]):
+        if generated_spline[j, i]:
+            img[j, i] = [255, 255, 255]
 
-vi.visualise(line, movement, x_start=movements[0][0][1], y_start=movements[0][0][0], movements=movements)
+
+vi.visualise(img, movement, x_start=movements[0][0][0], y_start=movements[0][0][1], movements=movements)
