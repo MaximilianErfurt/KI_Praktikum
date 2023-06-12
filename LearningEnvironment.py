@@ -47,8 +47,8 @@ def create_rand_image(mode):
     :return: Array, if mode = 0
     """
     # global_environment
-    x_size = 1000
-    y_size = 500
+    x_size = 100
+    y_size = 50
     array = np.zeros((y_size, x_size), dtype='uint8', )
 
     # generating random points
