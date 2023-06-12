@@ -321,7 +321,7 @@ def optimal_path(environment: np.ndarray, path: list[(int, int)], qtable: dict) 
 
             # set new state as current state
 
-            movements.append((current_state.__repr__(), action, current_hash))
+            movements.append((current_state.contact_position, action, current_state.contact_orientation))
             current_state = new_state
 
     return movements

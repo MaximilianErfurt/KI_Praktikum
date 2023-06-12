@@ -26,20 +26,20 @@ def reduce_draht_to_line(draht):
     edges = cv2.dilate(edges, kernel, iterations=10)
     skeleton = skeletonize(edges)
 
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8, 4),
-                             sharex=True, sharey=True)
+    # fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8, 4),
+    #                          sharex=True, sharey=True)
 
     # plotting the picture
-    ax = axes.ravel()
-    ax[0].imshow(edges, cmap=plt.cm.gray)
-    ax[0].axis('off')
-    ax[0].set_title('original', fontsize=20)
-    ax[1].imshow(skeleton, cmap=plt.cm.gray)
-    ax[1].axis('off')
-    ax[1].set_title('skeleton', fontsize=20)
-    fig.tight_layout()
-    plt.show()
-    cv2.destroyAllWindows()
+    # ax = axes.ravel()
+    # ax[0].imshow(edges, cmap=plt.cm.gray)
+    # ax[0].axis('off')
+    # ax[0].set_title('original', fontsize=20)
+    # ax[1].imshow(skeleton, cmap=plt.cm.gray)
+    # ax[1].axis('off')
+    # ax[1].set_title('skeleton', fontsize=20)
+    # fig.tight_layout()
+    # plt.show()
+    # cv2.destroyAllWindows()
     return skeleton
 
 
