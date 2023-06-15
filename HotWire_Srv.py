@@ -26,12 +26,14 @@ def str_to_bytes(s: str):
     """
     return bytes(s, 'utf-8')
 
+
 def bytes_to_str(b: bytes):
     """Convert bytes into string.
     :param b: Bytes to convert.
     :return: String representation of bytes b.
     """
     return str(b, 'utf-8')
+
 
 def make_xml(target="", seq="", config=""):
     """Make XML string.
@@ -49,6 +51,7 @@ def make_xml(target="", seq="", config=""):
         ret += f"<config>{config}</config>"
     return f"<msg>{ret}</msg>"
 
+
 def make_config(tSize=1.0, rSize=1.0):
     """Make config part of XML file.
     :param tSize: Step size for translatory movement in mm (optional).
@@ -57,14 +60,16 @@ def make_config(tSize=1.0, rSize=1.0):
     """
     return f"<tSize>{tSize}</tSize><rSize>{rSize}</rSize>"
 
+
 def make_seq_s(idx:int, seq:str):
     """Make single sequence part of XML file.
     :param idx: Index of sequence.
     :param seq: Movement sequence as string (max 50 signs).
     :return: Returns single sequence in required XML format.
     """
-    #return "<s{0:02}>{1}</s{0:02}>".format(idx, seq[0:50])
+    # return "<s{0:02}>{1}</s{0:02}>".format(idx, seq[0:50])
     return f"<s{idx:02}>{seq[0:50]}</s{idx:02}>"
+
 
 def make_test_seq():
     """Make test movement sequence.
@@ -95,6 +100,8 @@ def make_test_seq():
 # ******************************************************************************
 # TCP-client's thread
 # ******************************************************************************
+
+
 class ClientThread(Thread):
     """TCP-client's thread."""
 

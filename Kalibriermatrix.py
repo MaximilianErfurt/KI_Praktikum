@@ -10,6 +10,8 @@ from skimage.morphology import skeletonize
 
 # function to get the pixel cords
 # on mouseclick
+
+
 def click_event(event, x, y, flags, params):
     global xi
     global yi
@@ -17,6 +19,7 @@ def click_event(event, x, y, flags, params):
     if event == cv2.EVENT_LBUTTONDOWN:
         xi = x
         yi = y
+        print("Clicked Coordinates: {} {}\n".format(xi, yi))
 
 
 # global var
@@ -56,16 +59,31 @@ print(real_cords)
 
 inv_pixel_cords = np.linalg.pinv(pixel_cords)
 k = real_cords.dot(inv_pixel_cords)
-print("Kalibriermatrix",k)
+print("Kalibriermatrix :", k, "\n")
 
 # verify
 cv2.imshow('image', img)
 cv2.setMouseCallback('image', click_event)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+
 test_cord[0, 0] = xi
 test_cord[1, 0] = yi
 test_cord[2, 0] = 1
-print(test_cord)
+
+print("Test-Koordinate: ", test_cord)
 p = k.dot(test_cord)
-print(p)
+print("Test-Koordinate in mm: ", p)
+
+test_cord_1 = np.array([[350], [350], [1]])
+test_cord_2 = np.array([[351], [351], [1]])
+p1 = k.dot(test_cord_1)
+print("\nPunkt 1: ", p1)
+p2 = k.dot(test_cord_2)
+print("\nPunkt 2: ", p2)
+
+mm_x = p2[0, 0] - p1[0, 0]
+mm_y = p2[1, 0] - p1[1, 0]
+
+print("\nPixelschrittweite x: ", mm_x)
+print("Pixelschrittweite y: ", mm_y)
