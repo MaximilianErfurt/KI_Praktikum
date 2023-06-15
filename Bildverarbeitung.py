@@ -8,6 +8,7 @@ import numpy
 from sklearn.metrics import r2_score
 
 
+# Methode to reduce a picture to its skeleton
 def reduce_draht_to_line(draht):
     # original global_environment to grey global_environment
     img_gray = cv2.cvtColor(draht, cv2.COLOR_BGR2GRAY)
@@ -28,8 +29,8 @@ def reduce_draht_to_line(draht):
 
     # fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8, 4),
     #                          sharex=True, sharey=True)
-
-    # plotting the picture
+    #
+    # #plotting the picture
     # ax = axes.ravel()
     # ax[0].imshow(edges, cmap=plt.cm.gray)
     # ax[0].axis('off')
@@ -51,6 +52,7 @@ def find_start_point(img):
     return x, y
 
 
+# Method to make a boolean img back to RGB
 def back_to_rgb(img):
     height, width = img.shape
     rgb_img = np.zeros((height, width, 3), np.uint8)
@@ -59,3 +61,17 @@ def back_to_rgb(img):
             if img[row][col]:
                 rgb_img[row][col] = [255, 255, 255]
     return rgb_img
+
+
+# method to crop an image
+def crop_image(line, border):
+    # crop img
+    line = line[100:440, 20:540]
+    # add an 3 pixel wide left/right border to the cropped image
+    shape = np.shape(line)
+    shape2 = (shape[0], shape[1] + border * 2)
+    line_border = np.zeros(shape=shape2)
+    line_border[:, border:shape2[1] - border] = line
+    cv2.imshow("img", line_border)
+    cv2.waitKey(0)
+    cv2.destroyWindow("img")

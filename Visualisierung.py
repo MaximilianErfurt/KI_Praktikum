@@ -20,8 +20,8 @@ def visualise(img, movement_string, x_start, y_start, movements):
         cv2.imshow("Linie", img)
         # cv2.imshow("State", state)
         cv2.waitKey(100)
-        y = entry[0][1]
-        x = entry[0][0]
+        y = entry[0][0]
+        x = entry[0][1]
         current_orientation = Le.contact_orientation_indices[entry[2]]
         img[y - 2 + current_orientation[0][0], x - 2 + current_orientation[0][1]] = [0, 255, 0]
         img[y - 2 + current_orientation[1][0], x - 2 + current_orientation[1][1]] = [255, 0, 0]

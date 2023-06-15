@@ -12,10 +12,15 @@ import Visualisierung as vi
 # new_state = test_state.move_left(generated_spline)
 
 
-# img = cv2.imread('Draht.jpeg')
-# Bv.reduce_Draht_to_Line(draht=img)
+img = cv2.imread('2023-06-05_12_52_06.jpeg')
+cv2.imshow("img", img)
+cv2.waitKey(0)
+cv2.destroyWindow("img")
 
-generated_spline = Le.create_rand_image(0)
+line = Bv.reduce_draht_to_line(draht=img)
+line_croped = Bv.crop_image(line, 4)
+#generated_spline = Le.create_rand_image(0)
+generated_spline = line_croped
 path = Le.extract_path(generated_spline)
 
 for i in range(1):
@@ -61,17 +66,11 @@ for entry in movements:
 
 
 
-img = cv2.imread('KalibrierDraht.jpeg')
-cv2.imshow("img",img)
-cv2.waitKey(0)
-cv2.destroyWindow("img")
-
-line = Bv.reduce_draht_to_line(draht=img)
-x, y = Bv.find_start_point(line)
 
 
-line = Bv.back_to_rgb(line)
-cv2.imshow("img",line)
+
+line = Bv.back_to_rgb(generated_spline)
+cv2.imshow("img", line)
 cv2.waitKey(0)
 
-vi.visualise(line, movement, x_start=movements[0][0][1], y_start=movements[0][0][0], movements=movements)
+vi.visualise(line, movement, x_start=movements[0][0][0], y_start=movements[0][0][1], movements=movements)
