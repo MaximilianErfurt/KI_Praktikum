@@ -12,20 +12,19 @@ import Visualisierung as vi
 # new_state = test_state.move_left(generated_spline)
 
 
-img = cv2.imread('2023-06-05_12_52_06.jpeg')
+img = cv2.imread('./images/2023-06-05_12_48_29.jpeg')
 cv2.imshow("img", img)
 cv2.waitKey(0)
 cv2.destroyWindow("img")
 
 line = Bv.reduce_draht_to_line(draht=img)
-line_croped = Bv.crop_image(line, 4)
-#generated_spline = Le.create_rand_image(0)
-generated_spline = line_croped
+line_cropped = Bv.crop_and_flip_image(line, 4)
+generated_spline = Le.img_to_bool(line_cropped)
 path = Le.extract_path(generated_spline)
 
 for i in range(1):
-    generated_spline = Le.create_rand_image(0)
-    path = Le.extract_path(generated_spline)
+    # generated_spline = Le.create_rand_image(0)
+    # path = Le.extract_path(generated_spline)
     print("Iteration: {}\n".format(i+1))
     try:
         qtable = np.load('qtable.npy', allow_pickle=True).item()
@@ -45,7 +44,7 @@ except FileNotFoundError:
 
 movements = QTable.optimal_path(generated_spline, path, qtable)
 f = open('movements.txt', 'w')
-Le.contact_orientation_indices
+
 movement = ""
 for entry in movements:
     match entry[1]:
@@ -64,13 +63,10 @@ for entry in movements:
         case _:
             raise ValueError
 
-
-
-
-
-
 line = Bv.back_to_rgb(generated_spline)
 cv2.imshow("img", line)
 cv2.waitKey(0)
+
+f.write(movement)
 
 vi.visualise(line, movement, x_start=movements[0][0][0], y_start=movements[0][0][1], movements=movements)

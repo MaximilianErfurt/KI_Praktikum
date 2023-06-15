@@ -129,6 +129,18 @@ def create_rand_image(mode):
         return array_bool
 
 
+def img_to_bool(bild: np.ndarray) -> np.ndarray:
+
+    array_bool = np.zeros((bild.shape[0], bild.shape[1]), dtype=bool)
+    # convert to bool for performance
+    # numpy array conversion to bool doesn't work properly, so I'm doing it manually
+    for i in range(bild.shape[1]):
+        for j in range(bild.shape[0]):
+            if not (bild[j, i] == 0):
+                array_bool[j, i] = True
+    return array_bool
+
+
 def extract_path(array: np.ndarray) -> list[(int, int)]:
     """
     Takes a boolean array and returns a list of coordinates as (int, int) tuples, starting on the left side of the spline and ending on the right side

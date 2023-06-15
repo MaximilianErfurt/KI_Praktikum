@@ -12,9 +12,10 @@ import LearningEnvironment as Le
 
 
 def visualise(img, movement_string, x_start, y_start, movements):
-
+    cv2.namedWindow("Linie", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Linie", img.shape[1]*2, img.shape[0]*2)
     cv2.imshow("Linie", img)
-    #cv2.imshow("State", state)
+    # cv2.imshow("State", state)
     cv2.waitKey(100)
     for entry in movements:
         cv2.imshow("Linie", img)
