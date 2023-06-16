@@ -34,8 +34,10 @@ img = cv2.imread('KalibrierDraht.jpeg', 1)
 for i in range(4):
     # setting mouse handler for the image
     # and calling the click_event() function
-    cv2.imshow('image', img)
-    cv2.setMouseCallback('image', click_event)
+    cv2.namedWindow("Linie", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Linie", img.shape[1] * 2, img.shape[0] * 2)
+    cv2.imshow("Linie", img)
+    cv2.setMouseCallback("Linie", click_event)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     # save cords in 4x2 matrix
@@ -62,8 +64,10 @@ k = real_cords.dot(inv_pixel_cords)
 print("Kalibriermatrix :", k, "\n")
 
 # verify
-cv2.imshow('image', img)
-cv2.setMouseCallback('image', click_event)
+cv2.namedWindow("Linie", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("Linie", img.shape[1]*2, img.shape[0]*2)
+cv2.imshow("Linie", img)
+cv2.setMouseCallback("Linie", click_event)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 

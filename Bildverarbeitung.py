@@ -66,7 +66,7 @@ def back_to_rgb(img):
 # method to crop an image
 def crop_and_flip_image(line, border):
     # crop img
-    line = line[120:440, 22:555]
+    line = line[120:440, 22:538]
     # add an 3 pixel wide left/right border to the cropped image
     shape = np.shape(line)
     shape2 = (shape[0], shape[1] + border * 2)
